@@ -17,6 +17,7 @@ public class DrawView extends View
 {
     Paint paint = new Paint();
     Line3D line = new Line3D();
+    Line3D arrowHead = new Line3D();
 
     public DrawView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -24,27 +25,45 @@ public class DrawView extends View
         paint.setStrokeWidth(15);
     }
 
+    int arrowHeadLen = 40;
     @Override
     public void onDraw(Canvas canvas)
     {
         DataPoint start = line.getStartPos();
         DataPoint end = line.getEndPos();
         canvas.drawLine((int)(100 + start.getX()), (int)(100 + start.getY()),
-                100, 100, paint);
-        Log.w("Tag", "got here " + line.angleX);
+                (int)(100 + end.getX()), (int)(100 + end.getY()), paint);
+        double arrowHeadAngle = Math.atan2(start.getY(), start.getX());
+        canvas.drawLine((int)(100 + start.getX()), (int)(100 + start.getY()),
+                (int)(100+start.getX() + arrowHeadLen * Math.cos(arrowHeadAngle + 5*Math.PI / 6)),
+                (int)(100+start.getY() + arrowHeadLen * Math.sin(arrowHeadAngle + 5*Math.PI / 6)), paint);
+        canvas.drawLine((int)(100 + start.getX()), (int)(100 + start.getY()),
+                (int)(100+start.getX() + arrowHeadLen * Math.cos(arrowHeadAngle - 5*Math.PI / 6)),
+                (int)(100+start.getY() + arrowHeadLen * Math.sin(arrowHeadAngle - 5*Math.PI / 6)), paint);
+
+        /*
+        int arrowHeadLen = 40;
+        canvas.drawLine((int)(100 + start.getX()), (int)(start.getY() + 100),
+                (int)(100 + start.getX() + arrowHeadLen * Math.cos(line.angleX + 5*Math.PI/6) * Math.sin(line.angleY)),
+                (int)(100 + start.getY() + arrowHeadLen * Math.sin(line.angleX) + 5*Math.PI/6), paint);
+        /*
+        canvas.drawLine((int)(100 + start.getX()), (int)(start.getY() + 100),
+                (int)(100 + start.getX() + arrowHeadLen * Math.cos(line.angleX + 7*Math.PI/6)),
+                (int)(100 + start.getY() + arrowHeadLen * Math.sin(line.angleX + 7*Math.PI/6)), paint);*/
     }
+
     public class Line3D
     {
         double length = 200;
         double angleX = 0,
-                angleY = Math.PI/4;
+                angleY = 0;
 
-        public DataPoint getStartPos ()
+        private DataPoint getStartPos ()
         {
-            return new DataPoint(Math.cos(angleX) * length / 2 * Math.sin(angleY), Math.sin(angleX) * length / 2 * Math.cos(angleY));
+            return new DataPoint(length/2 * Math.cos(angleX) * Math.sin(angleY), length / 2 * Math.sin(angleX));
         }
 
-        public DataPoint getEndPos ()
+        private DataPoint getEndPos ()
         {
             DataPoint start = getStartPos();
             return new DataPoint(-start.getX(), -start.getY());

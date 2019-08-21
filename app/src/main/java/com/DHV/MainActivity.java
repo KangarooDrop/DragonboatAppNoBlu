@@ -47,26 +47,28 @@ public class MainActivity extends AppCompatActivity
     double graphYValue = 0;
     private double graphXValue = 0;
 
-    ArrayList<DataPoint> dataList = new ArrayList<DataPoint>();
-    ArrayList<DataPoint> dataBuffer = new ArrayList<DataPoint>();
+    ArrayList<DataPoint> dataList = new ArrayList<>();
+    ArrayList<DataPoint> dataBuffer = new ArrayList<>();
     private double graphXStep = 0;
 
     private int numOfPoints = 50;
     private double timeStep = 0.1;
+
+    private DrawView dv;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        graph = (GraphView) findViewById(R.id.graph);
-        graphSeries = new LineGraphSeries<DataPoint>();
+        graph = findViewById(R.id.graph);
+        graphSeries = new LineGraphSeries<>();
         graph.addSeries(graphSeries);
         graph.getViewport().setXAxisBoundsManual(true);
         graph.getViewport().setMinX(0);
         graph.getViewport().setMaxX(numOfPoints * timeStep);
 
-        pauseButton = (Button) findViewById(R.id.pausebutton);
+        pauseButton = findViewById(R.id.pausebutton);
         pauseButton.setOnClickListener(new View.OnClickListener()
         {
             @Override
@@ -77,7 +79,7 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-        resetButton = (Button) findViewById(R.id.resetbutton);
+        resetButton = findViewById(R.id.resetbutton);
         resetButton.setOnClickListener(new View.OnClickListener()
         {
             @Override
@@ -87,13 +89,13 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-        saveButton = (Button) findViewById(R.id.savebutton);
+        saveButton = findViewById(R.id.savebutton);
         saveButton.setOnClickListener(new View.OnClickListener()
         {
             @Override
             public void onClick(View view)
             {
-                ArrayList<String> dataToSave = new ArrayList<String>();
+                ArrayList<String> dataToSave = new ArrayList<>();
                 double lastTime = 0;
                 for(int i = 0; i < dataList.size(); i++)
                 {
@@ -104,7 +106,7 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-        loadButton = (Button) findViewById(R.id.loadbutton);
+        loadButton = findViewById(R.id.loadbutton);
         loadButton.setOnClickListener(new View.OnClickListener()
         {
             @Override
@@ -131,6 +133,8 @@ public class MainActivity extends AppCompatActivity
                 updatePauseButtonText();
             }
         });
+
+        dv = findViewById(R.id.drawview);
     }
 
     private void updatePauseButtonText()
@@ -150,6 +154,9 @@ public class MainActivity extends AppCompatActivity
                 if (!paused)
                 {
                     dataBuffer.add(getData(timeStep));
+                    dv.line.angleX += Math.PI/16;
+                    dv.line.angleY += Math.PI/16/16;
+                    dv.invalidate();
                 }
 
                 while(dataBuffer.size() > 0)
@@ -225,8 +232,8 @@ public class MainActivity extends AppCompatActivity
             FileInputStream fis = openFileInput("data_log.txt");
             InputStreamReader isr = new InputStreamReader(fis);
             BufferedReader br = new BufferedReader(isr);
-            ArrayList<String> logData = new ArrayList<String>();
-            String line = null;
+            ArrayList<String> logData = new ArrayList<>();
+            String line;
             while((line = br.readLine()) != null)
                 logData.add(line);
             fis.close();
@@ -238,6 +245,6 @@ public class MainActivity extends AppCompatActivity
             Log.w("Exception", "Error reading from file");
             e.printStackTrace();
         }
-        return null;
+        return new ArrayList<>();
     }
 }
