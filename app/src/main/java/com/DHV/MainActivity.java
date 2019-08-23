@@ -118,13 +118,13 @@ public class MainActivity extends AppCompatActivity
                 for(int i = 0; i < inputBuffer.size(); i++)
                 {
                     String line = inputBuffer.get(i);
-                    List<String> lineData = Arrays.asList(line.split(" "));
-                    if (lineData.size() >= 4) {
-                        int timeStepIndex = lineData.indexOf("t:") + 1;
-                        int pressureIndex = lineData.indexOf("p:") + 1;
+                    String[] lineData = line.split(" ");
+                    if (lineData.length >= 4) {
+                        int timeStepIndex = findIndex(lineData, "t:") + 1;
+                        int pressureIndex = findIndex(lineData, "p:") + 1;
                         if (timeStepIndex != 0 && pressureIndex != 0) {
-                            double lineTimeStep = Double.parseDouble(lineData.get(timeStepIndex));
-                            double linePressure = Double.parseDouble(lineData.get(pressureIndex));
+                            double lineTimeStep = Double.parseDouble(lineData[timeStepIndex]);
+                            double linePressure = Double.parseDouble(lineData[pressureIndex]);
                             dataBuffer.add(new DataPoint(lineTimeStep, linePressure));
                         }
                     }
@@ -154,8 +154,7 @@ public class MainActivity extends AppCompatActivity
                 if (!paused)
                 {
                     dataBuffer.add(getData(timeStep));
-                    dv.line.angleX += Math.PI/16;
-                    dv.line.angleY += Math.PI/16/16;
+                    dv.translate(Math.PI / 16, Math.PI / 16 / 16);
                     dv.invalidate();
                 }
 
@@ -246,5 +245,14 @@ public class MainActivity extends AppCompatActivity
             e.printStackTrace();
         }
         return new ArrayList<>();
+    }
+
+    private int findIndex(String[] arr, String dat)
+    {
+        if (arr != null)
+            for(int i = 0; i < arr.length; i++)
+                if(arr[i].equals(dat))
+                    return i;
+        return -1;
     }
 }

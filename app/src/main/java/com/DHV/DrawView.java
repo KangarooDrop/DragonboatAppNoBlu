@@ -15,9 +15,8 @@ import com.jjoe64.graphview.series.DataPoint;
 
 public class DrawView extends View
 {
-    Paint paint = new Paint();
-    Line3D line = new Line3D();
-    Line3D arrowHead = new Line3D();
+    private Paint paint = new Paint();
+    private Line3D line = new Line3D();
 
     public DrawView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -50,6 +49,18 @@ public class DrawView extends View
         canvas.drawLine((int)(100 + start.getX()), (int)(start.getY() + 100),
                 (int)(100 + start.getX() + arrowHeadLen * Math.cos(line.angleX + 7*Math.PI/6)),
                 (int)(100 + start.getY() + arrowHeadLen * Math.sin(line.angleX + 7*Math.PI/6)), paint);*/
+    }
+
+    public void setAngles(double angleX, double angleY)
+    {
+        line.angleX = angleX;
+        line.angleY = angleY;
+    }
+
+    public void translate(double deltaXAngle, double deltaYAngle)
+    {
+        line.angleX += deltaXAngle;
+        line.angleY += deltaYAngle;
     }
 
     public class Line3D
