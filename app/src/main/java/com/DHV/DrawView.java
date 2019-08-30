@@ -9,14 +9,16 @@ import android.graphics.Paint;
 import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.View;
+import android.app.Activity;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 
 import com.jjoe64.graphview.series.DataPoint;
 
 public class DrawView extends View
 {
     private Paint paint = new Paint();
-    private Line3D line = new Line3D();
+    private Line3D line;
 
     public DrawView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -24,21 +26,31 @@ public class DrawView extends View
         paint.setStrokeWidth(15);
     }
 
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus){
+        super.onWindowFocusChanged(hasFocus);
+        int w = getWidth(),
+                h = getHeight();
+        line = new Line3D(w > h ? h : w, 0, 0);
+    }
+
     int arrowHeadLen = 40;
     @Override
     public void onDraw(Canvas canvas)
     {
-        DataPoint start = line.getStartPos();
-        DataPoint end = line.getEndPos();
-        canvas.drawLine((int)(100 + start.getX()), (int)(100 + start.getY()),
-                (int)(100 + end.getX()), (int)(100 + end.getY()), paint);
-        double arrowHeadAngle = Math.atan2(start.getY(), start.getX());
-        canvas.drawLine((int)(100 + start.getX()), (int)(100 + start.getY()),
-                (int)(100+start.getX() + arrowHeadLen * Math.cos(arrowHeadAngle + 5*Math.PI / 6)),
-                (int)(100+start.getY() + arrowHeadLen * Math.sin(arrowHeadAngle + 5*Math.PI / 6)), paint);
-        canvas.drawLine((int)(100 + start.getX()), (int)(100 + start.getY()),
-                (int)(100+start.getX() + arrowHeadLen * Math.cos(arrowHeadAngle - 5*Math.PI / 6)),
-                (int)(100+start.getY() + arrowHeadLen * Math.sin(arrowHeadAngle - 5*Math.PI / 6)), paint);
+        if (line != null) {
+            double mid = line.length / 2;
+            DataPoint start = line.getStartPos();
+            DataPoint end = line.getEndPos();
+            canvas.drawLine((int) (mid + start.getX()), (int) (mid + start.getY()),
+                    (int) (mid + end.getX()), (int) (mid + end.getY()), paint);
+            double arrowHeadAngle = Math.atan2(start.getY(), start.getX());
+            canvas.drawLine((int) (mid + start.getX()), (int) (mid + start.getY()),
+                    (int) (mid + start.getX() + arrowHeadLen * Math.cos(arrowHeadAngle + 5 * Math.PI / 6)),
+                    (int) (mid + start.getY() + arrowHeadLen * Math.sin(arrowHeadAngle + 5 * Math.PI / 6)), paint);
+            canvas.drawLine((int) (mid + start.getX()), (int) (mid + start.getY()),
+                    (int) (mid + start.getX() + arrowHeadLen * Math.cos(arrowHeadAngle - 5 * Math.PI / 6)),
+                    (int) (mid + start.getY() + arrowHeadLen * Math.sin(arrowHeadAngle - 5 * Math.PI / 6)), paint);
 
         /*
         int arrowHeadLen = 40;
@@ -49,18 +61,24 @@ public class DrawView extends View
         canvas.drawLine((int)(100 + start.getX()), (int)(start.getY() + 100),
                 (int)(100 + start.getX() + arrowHeadLen * Math.cos(line.angleX + 7*Math.PI/6)),
                 (int)(100 + start.getY() + arrowHeadLen * Math.sin(line.angleX + 7*Math.PI/6)), paint);*/
+        }
     }
 
     public void setAngles(double angleX, double angleY)
     {
-        line.angleX = angleX;
-        line.angleY = angleY;
+        if (line != null) {
+            line.angleX = angleX;
+            line.angleY = angleY;
+        }
     }
 
     public void translate(double deltaXAngle, double deltaYAngle)
     {
-        line.angleX += deltaXAngle;
-        line.angleY += deltaYAngle;
+
+        if (line != null) {
+            line.angleX += deltaXAngle;
+            line.angleY += deltaYAngle;
+        }
     }
 
     public class Line3D
@@ -68,6 +86,13 @@ public class DrawView extends View
         double length = 200;
         double angleX = 0,
                 angleY = 0;
+
+        Line3D(double len, double startAngleX, double startAngleY)
+        {
+            this.length = len;
+            this.angleX = startAngleX;
+            this.angleY = startAngleY;
+        }
 
         private DataPoint getStartPos ()
         {

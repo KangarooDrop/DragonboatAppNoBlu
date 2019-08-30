@@ -1,23 +1,28 @@
 package com.DHV;
 
+import android.text.InputType;
+import android.content.DialogInterface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.app.AlertDialog;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemSelectedListener;
+import android.widget.Toast;
+import android.widget.EditText;
 
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.res.TypedArrayUtils;
 
-import android.os.Handler;
-
-import android.util.Log;
-import android.view.View;
-import android.widget.Button;
-import android.content.Context;
-
-import java.io.OutputStreamWriter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
@@ -25,23 +30,24 @@ import java.util.Arrays;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.BufferedWriter;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 
 public class MainActivity extends AppCompatActivity
 {
-    private Button saveButton;
-    private Button resetButton;
-    private Button loadButton;
-    private Button pauseButton;
-    private boolean paused = false;
+    private double startRecordTime = -1;
+    private double stopRecordTime = -1;
+    private LineGraphSeries<DataPoint> recordSeries = new LineGraphSeries<>();
+    private boolean recording = false;
+
+    private Spinner dataSelectionSpinner;
+    ArrayList<String> spinnerList = new ArrayList<>();
 
     private final Handler graphHandler = new Handler();
     private Runnable graphTimer;
     GraphView graph;
-    private LineGraphSeries<DataPoint> graphSeries;
+    private ArrayList<LineGraphSeries<DataPoint>> graphSeries;
     Random mRand = new Random();
 
     double graphYValue = 0;
@@ -51,10 +57,8 @@ public class MainActivity extends AppCompatActivity
     ArrayList<DataPoint> dataBuffer = new ArrayList<>();
     private double graphXStep = 0;
 
-    private int numOfPoints = 50;
+    private int numOfPoints = 1023;
     private double timeStep = 0.1;
-
-    private DrawView dv;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,84 +66,172 @@ public class MainActivity extends AppCompatActivity
         setContentView(R.layout.activity_main);
 
         graph = findViewById(R.id.graph);
-        graphSeries = new LineGraphSeries<>();
-        graph.addSeries(graphSeries);
+        graphSeries = new ArrayList<>();
+        graphSeries.add(new LineGraphSeries<DataPoint>());
         graph.getViewport().setXAxisBoundsManual(true);
         graph.getViewport().setMinX(0);
-        graph.getViewport().setMaxX(numOfPoints * timeStep);
+        graph.getViewport().setMaxX(5);
+        graph.getViewport().setScrollable(true);
 
-        pauseButton = findViewById(R.id.pausebutton);
-        pauseButton.setOnClickListener(new View.OnClickListener()
+        recordSeries.setColor(0xffff0000);
+
+        spinnerList.add("Live");
+        List<String> fileNames = getAllFilenames();
+        for(int i = 0; fileNames != null && i < fileNames.size(); i++)
+        {
+            graphSeries.add(new LineGraphSeries<DataPoint>());
+            String fileName = fileNames.get(i);
+            spinnerList.add(fileName.substring(0, fileName.length() - 4));
+        }
+        dataSelectionSpinner = findViewById(R.id.data_spinner);
+        updateSpinnerList();
+        dataSelectionSpinner.setOnItemSelectedListener(new OnItemSelectedListener()
         {
             @Override
-            public void onClick(View view)
+            public void onItemSelected(AdapterView<?> arg0, View arg1, int position, long id)
             {
-                paused = !paused;
-                updatePauseButtonText();
+                graph.removeAllSeries();
+                graph.addSeries(graphSeries.get(position));
+                if (position != 0)
+                {
+                    graph.getViewport().setScrollable(true);
+                    double startX = graphXValue;
+                    graphXValue = 0;
+                    graphSeries.get(position).resetData(new DataPoint[] {});
+                    List<String> strData = readFromDataFile(spinnerList.get(position));
+                    for(String line : strData)
+                        addStringToGraph(line, position);
+                    graphXValue = startX;
+                }
+                else {
+                    graph.getViewport().setScrollable(false);
+                    graph.addSeries(recordSeries);
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> arg0)
+            {
+
             }
         });
 
-        resetButton = findViewById(R.id.resetbutton);
-        resetButton.setOnClickListener(new View.OnClickListener()
-        {
-            @Override
-            public void onClick(View view)
-            {
-                resetGraph();
-            }
-        });
-
-        saveButton = findViewById(R.id.savebutton);
+        Button saveButton = findViewById(R.id.savebutton);
         saveButton.setOnClickListener(new View.OnClickListener()
         {
             @Override
             public void onClick(View view)
             {
-                ArrayList<String> dataToSave = new ArrayList<>();
-                double lastTime = 0;
-                for(int i = 0; i < dataList.size(); i++)
-                {
-                    dataToSave.add("t: " + (dataList.get(i).getX() - lastTime) + " p: " + dataList.get(i).getY());
-                    lastTime = dataList.get(i).getX();
-                }
-                writeToDataFile(dataToSave);
+                final EditText input = new EditText(MainActivity.this);
+                input.setInputType(InputType.TYPE_CLASS_TEXT);
+
+                new AlertDialog.Builder(MainActivity.this).setTitle("Save Data As").setView(input).setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which)
+                    {
+                        ArrayList<String> dataToSave = new ArrayList<>();
+                        double lastTime = -1;
+                        Iterator<DataPoint> iter = recordSeries.getValues(startRecordTime, stopRecordTime);
+                        DataPoint currentPoint;
+                        while (iter.hasNext())
+                        {
+                            currentPoint = iter.next();
+                            if(lastTime == -1)
+                                lastTime = currentPoint.getX();
+                            dataToSave.add("t: " + (currentPoint.getX() - lastTime) + " p: " + currentPoint.getY());
+                            lastTime = currentPoint.getX();
+                        }
+                        if (writeToDataFile(dataToSave, input.getText().toString()))
+                        {
+                            graphSeries.add(new LineGraphSeries<DataPoint>());
+                            if (!spinnerList.contains(input.getText().toString())) {
+                                spinnerList.add(input.getText().toString());
+                                updateSpinnerList();
+                            }
+                            recordSeries.resetData(new DataPoint[] {});
+                        }
+                        else
+                            Toast.makeText(MainActivity.this, "Could not create file with the selected name. Please try again with a different file name", Toast.LENGTH_LONG).show();
+                    }
+                }).setNegativeButton("Cancel", null).show();
             }
         });
 
-        loadButton = findViewById(R.id.loadbutton);
-        loadButton.setOnClickListener(new View.OnClickListener()
-        {
+        Button startButton = findViewById(R.id.startrecordbutton);
+        startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view)
             {
-                resetGraph();
-
-                ArrayList<String> inputBuffer = readFromDataFile();
-                for(int i = 0; i < inputBuffer.size(); i++)
-                {
-                    String line = inputBuffer.get(i);
-                    String[] lineData = line.split(" ");
-                    if (lineData.length >= 4) {
-                        int timeStepIndex = findIndex(lineData, "t:") + 1;
-                        int pressureIndex = findIndex(lineData, "p:") + 1;
-                        if (timeStepIndex != 0 && pressureIndex != 0) {
-                            double lineTimeStep = Double.parseDouble(lineData[timeStepIndex]);
-                            double linePressure = Double.parseDouble(lineData[pressureIndex]);
-                            dataBuffer.add(new DataPoint(lineTimeStep, linePressure));
-                        }
-                    }
-                }
-                paused = true;
-                updatePauseButtonText();
+                startRecordTime = graphXValue;
+                recordSeries.resetData(new DataPoint[] {});
+                recording = true;
             }
         });
 
-        dv = findViewById(R.id.drawview);
+        Button stopButton = findViewById(R.id.stoprecordbutton);
+        stopButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view)
+            {
+                if (recording) {
+                    stopRecordTime = graphXValue;
+                    recording = false;
+                }
+            }
+        });
+
+        Button closeButton = findViewById(R.id.closebuttton);
+        closeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view)
+            {
+                String name = dataSelectionSpinner.getSelectedItem().toString();
+                if (dataSelectionSpinner.getSelectedItemPosition() != 0) {
+                    new AlertDialog.Builder(MainActivity.this).setTitle("Are you sure you want to delete \"" + name + "\" forever?")
+                            .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
+                                    String name = dataSelectionSpinner.getSelectedItem().toString();
+                                    if (deleteFileFromDir(name)) {
+                                        int index = spinnerList.indexOf(name);
+                                        graphSeries.remove(index);
+                                        spinnerList.remove(name);
+                                        updateSpinnerList();
+                                    }
+                                    else
+                                        Toast.makeText(MainActivity.this, "Could not delete file", Toast.LENGTH_SHORT).show();
+                                }
+                            }).setNegativeButton("No", null)
+                            .show();
+                }
+                else
+                    Toast.makeText(MainActivity.this, "Cannot close the live feed", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
-    private void updatePauseButtonText()
+    private void addStringToGraph(String line, int index)
     {
-        pauseButton.setText(paused ? "Play" : "Pause");
+        try {
+            List<String> lineData = Arrays.asList(line.split(" "));
+            if (lineData.size() >= 4) {
+                int timeStepIndex = lineData.indexOf("t:") + 1;
+                int pressureIndex = lineData.indexOf("p:") + 1;
+                if (timeStepIndex != 0) {
+                    double deltaTime = Double.parseDouble(lineData.get(timeStepIndex));
+                    if (pressureIndex != 0)
+                    {
+                        double pressureVal = Double.parseDouble(lineData.get(pressureIndex));
+                        DataPoint receivedPoint = new DataPoint(graphXValue, pressureVal);
+                        graphSeries.get(index).appendData(receivedPoint, true, numOfPoints);
+                        graphXValue += deltaTime;
+                    }
+                }
+            }
+        }
+        catch (NumberFormatException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -151,12 +243,7 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void run()
             {
-                if (!paused)
-                {
-                    dataBuffer.add(getData(timeStep));
-                    dv.translate(Math.PI / 16, Math.PI / 16 / 16);
-                    dv.invalidate();
-                }
+                dataBuffer.add(getData(timeStep));
 
                 while(dataBuffer.size() > 0)
                 {
@@ -168,8 +255,14 @@ public class MainActivity extends AppCompatActivity
                     {
                         graphXValue += timeStep;
                         graphXStep -= timeStep;
-                        //graphXStep -= timeStep;
-                        graphSeries.appendData(new DataPoint(graphXValue, pointToAdd.getY()), true, numOfPoints);
+                        boolean scrollToEnd = (dataSelectionSpinner.getSelectedItemPosition() == 0);
+                        if (recording)
+                        {
+                            recordSeries.appendData(new DataPoint(graphXValue, pointToAdd.getY()), scrollToEnd, numOfPoints);
+                            graphSeries.get(0).appendData(new DataPoint(graphXValue, pointToAdd.getY()), scrollToEnd, numOfPoints);
+                        }
+                        else
+                            graphSeries.get(0).appendData(new DataPoint(graphXValue, pointToAdd.getY()), scrollToEnd, numOfPoints);
                         dataList.add(new DataPoint(graphXValue, pointToAdd.getY()));
                     }
                 }
@@ -197,38 +290,41 @@ public class MainActivity extends AppCompatActivity
         return graphYValue += mRand.nextDouble()*5 - 2.5;
     }
 
-    private void resetGraph()
-    {
-        graphXValue = 0;
-        graphXStep = 0;
-        graphYValue = 0;
-        dataList.clear();
-        dataBuffer.clear();
-        graphSeries.resetData(new DataPoint[] {});
-    }
-
-    private void writeToDataFile(ArrayList<String> data)
+    private boolean writeToDataFile(ArrayList<String> data, String fileName)
     {
         try
-        {
-            FileOutputStream fos = openFileOutput("data_log.txt", MODE_PRIVATE);
+        {/*
+            String path = "";
+            int slashIndex = 0;
+            while((slashIndex = fileName.indexOf('/')) != -1) {
+                path += fileName.substring(0, slashIndex+1);
+                fileName = fileName.substring(slashIndex+1, fileName.length());
+            }
+            Log.w("path", "Path="+path);*/
+            File parentFolder = getDir("dataset", MODE_PRIVATE);
+            File outFile = new File(parentFolder, fileName + ".txt");
+            FileOutputStream fos = new FileOutputStream(outFile);
             for(int i = 0; i < data.size(); i++)
                 fos.write((data.get(i) + "\n").getBytes());
             fos.close();
             Log.w("Writing", "Writing to data log file");
+            return true;
         }
         catch (IOException e)
         {
             Log.w("Exception", "Error writing to file: " + e.toString());
             e.printStackTrace();
+            return false;
         }
     }
 
-    private ArrayList<String> readFromDataFile()
+    private ArrayList<String> readFromDataFile(String fileName)
     {
         try
         {
-            FileInputStream fis = openFileInput("data_log.txt");
+            File parentFolder = getDir("dataset", MODE_PRIVATE);
+            File outFile = new File(parentFolder, fileName + ".txt");
+            FileInputStream fis = new FileInputStream(outFile);
             InputStreamReader isr = new InputStreamReader(fis);
             BufferedReader br = new BufferedReader(isr);
             ArrayList<String> logData = new ArrayList<>();
@@ -247,12 +343,29 @@ public class MainActivity extends AppCompatActivity
         return new ArrayList<>();
     }
 
-    private int findIndex(String[] arr, String dat)
+    private List<String> getAllFilenames ()
     {
-        if (arr != null)
-            for(int i = 0; i < arr.length; i++)
-                if(arr[i].equals(dat))
-                    return i;
-        return -1;
+        List<String> fileNames = new ArrayList<>();
+        File dir = getDir("dataset", MODE_PRIVATE);
+        if (dir != null && dir.list() != null)
+            Collections.addAll(fileNames, dir.list());
+        else
+            return new ArrayList<>();
+        return fileNames;
+    }
+
+    private boolean deleteFileFromDir (String fileName)
+    {
+        File dir = getDir("dataset", MODE_PRIVATE);
+        File f = new File(dir, fileName + ".txt");
+        return f.delete();
+    }
+
+    private void updateSpinnerList()
+    {
+        ArrayAdapter<String> adp1 = new ArrayAdapter<>(this,
+                android.R.layout.simple_list_item_1, spinnerList);
+        adp1.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        dataSelectionSpinner.setAdapter(adp1);
     }
 }
