@@ -60,6 +60,10 @@ public class MainActivity extends AppCompatActivity
     private int numOfPoints = 1023;
     private double timeStep = 0.1;
 
+    private boolean paused = false;
+
+    private OrientationViewer ov;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -113,6 +117,16 @@ public class MainActivity extends AppCompatActivity
             public void onNothingSelected(AdapterView<?> arg0)
             {
 
+            }
+        });
+
+        final Button pauseButton = findViewById(R.id.pausebutton);
+        pauseButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                paused = !paused;
+                pauseButton.setText(paused ? "Play" : "Pause");
+                graph.getViewport().setScrollable(paused);
             }
         });
 
@@ -208,6 +222,8 @@ public class MainActivity extends AppCompatActivity
                     Toast.makeText(MainActivity.this, "Cannot close the live feed", Toast.LENGTH_SHORT).show();
             }
         });
+
+        ov = findViewById(R.id.orientationviewer);
     }
 
     private void addStringToGraph(String line, int index)
@@ -255,7 +271,13 @@ public class MainActivity extends AppCompatActivity
                     {
                         graphXValue += timeStep;
                         graphXStep -= timeStep;
-                        boolean scrollToEnd = (dataSelectionSpinner.getSelectedItemPosition() == 0);
+
+                        ov.translate(timeStep * 4.0 / 3, -timeStep * 3.0 / 4);
+                        if (!paused) {
+                            ov.invalidate();
+                        }
+
+                        boolean scrollToEnd = (dataSelectionSpinner.getSelectedItemPosition() == 0 && !paused);
                         if (recording)
                         {
                             recordSeries.appendData(new DataPoint(graphXValue, pointToAdd.getY()), scrollToEnd, numOfPoints);

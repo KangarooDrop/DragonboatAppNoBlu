@@ -51,16 +51,6 @@ public class DrawView extends View
             canvas.drawLine((int) (mid + start.getX()), (int) (mid + start.getY()),
                     (int) (mid + start.getX() + arrowHeadLen * Math.cos(arrowHeadAngle - 5 * Math.PI / 6)),
                     (int) (mid + start.getY() + arrowHeadLen * Math.sin(arrowHeadAngle - 5 * Math.PI / 6)), paint);
-
-        /*
-        int arrowHeadLen = 40;
-        canvas.drawLine((int)(100 + start.getX()), (int)(start.getY() + 100),
-                (int)(100 + start.getX() + arrowHeadLen * Math.cos(line.angleX + 5*Math.PI/6) * Math.sin(line.angleY)),
-                (int)(100 + start.getY() + arrowHeadLen * Math.sin(line.angleX) + 5*Math.PI/6), paint);
-        /*
-        canvas.drawLine((int)(100 + start.getX()), (int)(start.getY() + 100),
-                (int)(100 + start.getX() + arrowHeadLen * Math.cos(line.angleX + 7*Math.PI/6)),
-                (int)(100 + start.getY() + arrowHeadLen * Math.sin(line.angleX + 7*Math.PI/6)), paint);*/
         }
     }
 
